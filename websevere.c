@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <unistd.h>
 
 int main(int argc, char *argv[])
 {
@@ -20,7 +21,7 @@ int main(int argc, char *argv[])
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_flags = AI_PASSIVE;
 
-  status = getaddrinfo(NULL, "80", &hints, &servers);
+  status = getaddrinfo(NULL, "2333", &hints, &servers);
   if (status != 0 ) {
     fprintf(stderr, "gettarrinfo error: %s\n", gai_strerror(status));
     exit(1);
@@ -44,6 +45,12 @@ int main(int argc, char *argv[])
     inet_ntop(server->ai_family, addr, ipstr, sizeof ipstr);
     printf(" %s: %s\n", ipver, ipstr);
   }
+
+  // open a socket on this addrinfo
+  // this is a dumb way of doing it because no checks are done
+  int s = socket(servers->ai_family, servers->ai_socktype, servers->ai_protocol);
+  printf("socket fd: %d\n", s);
+  close(s);
   freeaddrinfo(servers);
   return 0;
 }
