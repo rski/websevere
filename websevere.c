@@ -7,6 +7,8 @@
 #include <string.h>
 #include <unistd.h>
 
+#define BACKLOG 10
+
 int main(int argc, char *argv[])
 {
   struct addrinfo hints;
@@ -50,6 +52,20 @@ int main(int argc, char *argv[])
   // this is a dumb way of doing it because no checks are done
   int s = socket(servers->ai_family, servers->ai_socktype, servers->ai_protocol);
   printf("socket fd: %d\n", s);
+  bind(s, servers->ai_addr, servers->ai_addrlen);
+  printf("listening");
+  listen(s, BACKLOG);
+
+  struct sockaddr_storage * their_addr;
+  socklen_t addr_size = sizeof their_addr;
+  int new_fd = accept(s, (struct sockaddr *) &their_addr, &addr_size);
+  char * buff[110];
+  ssize_t readsize;
+  while(1){
+    readsize = recv(new_fd, buff, 110, 0);
+    // nice overflow going on here
+    printf("%s", buff);
+  }
   close(s);
   freeaddrinfo(servers);
   return 0;
