@@ -1,10 +1,13 @@
 # A simple webserver
 
+[![Build Status](https://travis-ci.org/rski/websevere.svg?branch=master)](https://travis-ci.org/rski/websevere)
+
 ## Features
 
 - Now serving files of size of  up to 1024 * sizeof char!
 - Suffers from the same vulnerability as Miele's dishwasher:
   https://www.theregister.co.uk/2017/03/26/miele_joins_internetofst_hall_of_shame/
+- Has a malapropism as a title.
 - Actually runs.
 
 ## Limitations
