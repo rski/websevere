@@ -6,15 +6,17 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
+#include <errno.h>
 
 #define BACKLOG 10
+#define BUFFSIZE 1000
 
 int main(int argc, char *argv[])
 {
   struct addrinfo hints;
   struct addrinfo *servers, *server;
   int status = 0;
-  char ipstr[INET6_ADDRSTRLEN];
+  int yes = 1;
   memset(&hints, 0, sizeof hints);
   // we want an addrinfo that is either ipv4 or 6,
   // that is tcp and since we'll pass NULL to getaddrinfo,
@@ -29,44 +31,53 @@ int main(int argc, char *argv[])
     exit(1);
   }
   printf("Here is what we got:\n");
-
+  int s;
   for (server = servers; server !=NULL; server = server->ai_next) {
-    char *ipver;
-    void *addr;
-    // yay weak typing
-    if (server->ai_family == AF_INET) {
-      struct sockaddr_in *ipv4 = (struct sockaddr_in *)server->ai_addr;
-      addr = &(ipv4->sin_addr);
-      ipver = "IPv4";
+    if ((s = socket(server->ai_family, server->ai_socktype, server->ai_protocol)) < 0){
+      perror("server: could not open a socket");
+      continue;
+      }
+    if (setsockopt(s, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1){ // we want to be able to bind even if socket is in TIME_WAIT
+      perror("Failed setting socket options");
+      continue;
     }
-    else {
-      struct sockaddr_in6 *ipv6 = (struct sockaddr_in6*)server->ai_addr;
-      addr = &(ipv6->sin6_addr);
-      ipver = "IPv6";
+    if (bind(s, server->ai_addr, server->ai_addrlen) == -1){
+      perror("binding to port 2333");
+      close(s);
+      continue;
     }
-    inet_ntop(server->ai_family, addr, ipstr, sizeof ipstr);
-    printf(" %s: %s\n", ipver, ipstr);
+    break;
+
   }
+  freeaddrinfo(servers);
+
 
   // open a socket on this addrinfo
-  // this is a dumb way of doing it because no checks are done
-  int s = socket(servers->ai_family, servers->ai_socktype, servers->ai_protocol);
   printf("socket fd: %d\n", s);
-  bind(s, servers->ai_addr, servers->ai_addrlen);
-  printf("listening");
-  listen(s, BACKLOG);
+  if (listen(s, BACKLOG) == -1){
+    perror("Fatal error while trying to listen");
+    exit(1);
+  }
+  printf("listening\n");
 
   struct sockaddr_storage * their_addr;
   socklen_t addr_size = sizeof their_addr;
   int new_fd = accept(s, (struct sockaddr *) &their_addr, &addr_size);
-  char * buff[110];
-  ssize_t readsize;
-  while(1){
-    readsize = recv(new_fd, buff, 110, 0);
-    // nice overflow going on here
-    printf("%s", buff);
+  char buff[BUFFSIZE];
+  // assuming the request got here in one piece
+  // quite a bold assumption
+  recv(new_fd, buff, BUFFSIZE, 0);
+  printf("%s", buff);
+
+  if(strncmp((const char *)buff, "GET", 3) != 0){
+    char * notimplemented = "HTTP/1.1 501 Not Implemented\r\n\r\n";
+    send(new_fd, (const char *) notimplemented, strlen(notimplemented), 0);
   }
+  else {
+    char * ok = "HTTP/1.1 200 OK\r\n\r\n";
+    send(new_fd, ok, strlen(ok), 0);
+  }
+  close(new_fd);
   close(s);
-  freeaddrinfo(servers);
   return 0;
 }
