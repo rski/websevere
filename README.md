@@ -15,7 +15,6 @@
 - Only tested on Arch Linux, but should work on most recent Linux distributions.
 - Very rudimentary HTTP 1.1 implementation
 - Single threaded
-- Accepts one connection, tries to serve it and closes down
 - Everything is dumped in one function, main
 - Limited self-awareness in the areas it is limited in
 

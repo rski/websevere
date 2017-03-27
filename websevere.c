@@ -13,7 +13,7 @@
 #define BUFFSIZE 1024
 
 #define NOTIMPLEMENTED "HTTP/1.1 501 Not Implemented\r\n\r\n"
-#define OK "HTTP/1.1 200 OK"
+#define OK "HTTP/1.1 200 OK\r\n\r\n"
 #define NOTFOUND "HTTP/1.1 404 Not Found\r\n\r\n"
 #define FORBIDDEN "HTTP/1.1 403 Forbidden\r\n\r\n"
 
@@ -68,52 +68,58 @@ int main(int argc, char *argv[])
 
   struct sockaddr_storage * their_addr;
   socklen_t addr_size = sizeof their_addr;
-  int new_fd = accept(s, (struct sockaddr *) &their_addr, &addr_size);
+  int new_fd;
   char buff[BUFFSIZE];
   char file_to_serve[BUFFSIZE];
 
-  // assuming the request got here in one piece
-  // quite a bold assumption
-  recv(new_fd, buff, BUFFSIZE, 0);
-  printf("%s", buff);
-  if(strncmp((const char *)buff, "GET", 3) != 0){
-    send(new_fd, (const char *) NOTIMPLEMENTED, strlen(NOTIMPLEMENTED), 0);
-  }
-  else {
-    //check if the file is there
-    strtok(buff, " ");
-    char * path = strtok(NULL, " ");
-    printf("%s", path);
-    if (strlen(path) == 1 && strncmp((const char *) path, "/", 1) == 0){
-      memcpy(file_to_serve, "index.html\0", strlen("index.html")+1);
+  while(1){
+    new_fd = accept(s, (struct sockaddr *) &their_addr, &addr_size);
+
+    // assuming the request got here in one piece
+    // quite a bold assumption
+    recv(new_fd, buff, BUFFSIZE, 0);
+    printf("%s", buff);
+    if(strncmp((const char *)buff, "GET", 3) != 0){
+      send(new_fd, (const char *) NOTIMPLEMENTED, strlen(NOTIMPLEMENTED), 0);
     }
     else {
-      sprintf(file_to_serve, ".%s", path);
-    }
+      //check if the file is there
+      strtok(buff, " ");
+      char * path = strtok(NULL, " ");
+      printf("%s", path);
+      if (strlen(path) == 1 && strncmp((const char *) path, "/", 1) == 0){
+        memcpy(file_to_serve, "index.html\0", strlen("index.html")+1);
+      }
+      else {
+        sprintf(file_to_serve, ".%s", path);
+      }
 
-    printf("file to serve: %s\n", file_to_serve);
-    if (access(file_to_serve, F_OK) != 0){
-      perror("Error while looking for file to serve.\n");
-      send(new_fd, NOTFOUND, strlen(NOTFOUND), 0);
-      exit(1);
-    }
-    if (access(file_to_serve, R_OK) !=0){
-      perror("File to serve seems to not be readable.\n");
-      send(new_fd, FORBIDDEN, strlen(FORBIDDEN), 0);
-      exit(1);
-    }
-    FILE * file;
-    file = fopen(file_to_serve, "r");
-    char filebuff[BUFFSIZE];
-    int nread = fread(filebuff, 1, sizeof filebuff, file);
-    char sendpagebuff[strlen(OK) + nread];
+      printf("file to serve: %s\n", file_to_serve);
+      if (access(file_to_serve, F_OK) != 0){
+        perror("Error while looking for file to serve.\n");
+        send(new_fd, NOTFOUND, strlen(NOTFOUND), 0);
+        close(new_fd);
+        continue;
+      }
+      if (access(file_to_serve, R_OK) !=0){
+        perror("File to serve seems to not be readable.\n");
+        send(new_fd, FORBIDDEN, strlen(FORBIDDEN), 0);
+        close(new_fd);
+        continue;
+      }
+      FILE * file;
+      file = fopen(file_to_serve, "r");
+      char filebuff[BUFFSIZE];
+      int nread = fread(filebuff, 1, sizeof filebuff, file);
+      char sendpagebuff[strlen(OK) + nread];
 
-    memcpy(sendpagebuff, OK, strlen(OK));
-    memcpy(sendpagebuff+strlen(OK), filebuff, nread);
+      memcpy(sendpagebuff, OK, strlen(OK));
+      memcpy(sendpagebuff+strlen(OK), filebuff, nread);
 
-    send(new_fd, sendpagebuff, strlen(OK) + nread, 0);
+      send(new_fd, sendpagebuff, strlen(OK) + nread, 0);
+    }
+    close(new_fd);
   }
-  close(new_fd);
   close(s);
   return 0;
 }
